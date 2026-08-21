@@ -638,5 +638,22 @@
       "warranty": "保修情况",
       "wheelSize": "轮辋尺寸"
     }
+  },
+  "intro": {
+    "since": "自1987年",
+    "tagline": "豪华车辆 · 卓越服务",
+    "stat1Label": "年卓越经验",
+    "stat2Label": "全球分机构",
+    "stat3Label": "交付车辆",
+    "stat2Value": "10+",
+    "stat3Value": "50K+",
+    "skip": "跳过"
+  },
+  "whatsapp": {
+    "title": "Hussein Ghulam Motors",
+    "subtitle": "通常即时回复",
+    "greeting": "👋 您好！我们今天能为您提供什么帮助？请询我们的豪华车辆！",
+    "ctaButton": "开始 WhatsApp 聊天",
+    "defaultMessage": "您好！我对您的车辆感兴趣，能帮我吗？"
   }
 }

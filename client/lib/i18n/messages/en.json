@@ -638,5 +638,22 @@
       "warranty": "Warranty",
       "wheelSize": "Wheel Size"
     }
+  },
+  "intro": {
+    "since": "Since 1987",
+    "tagline": "Premium Vehicles · Exceptional Service",
+    "stat1Label": "Years of Excellence",
+    "stat2Label": "Global Branches",
+    "stat3Label": "Vehicles Delivered",
+    "stat2Value": "10+",
+    "stat3Value": "50K+",
+    "skip": "Skip"
+  },
+  "whatsapp": {
+    "title": "Hussein Ghulam Motors",
+    "subtitle": "Typically replies instantly",
+    "greeting": "👋 Hello! How can we assist you today? Ask us about our premium vehicles!",
+    "ctaButton": "Start Chat on WhatsApp",
+    "defaultMessage": "Hello! I am interested in your vehicles. Can you help me?"
   }
 }

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useI18n } from '@/lib/i18n';
-import { siFacebook, siInstagram } from 'simple-icons/icons';
+import { siFacebook, siInstagram, siTiktok } from 'simple-icons/icons';
 
 const QuickLinks = [
   { nameKey: 'navbar.home', link: '/' },
@@ -26,6 +26,7 @@ const policies = [
 const Social = [
   { link: 'https://www.facebook.com/husseinghulammotorsfzco', icon: siFacebook },
   { link: 'https://www.instagram.com/husseinghulammotors', icon: siInstagram },
+  { link: 'https://www.tiktok.com/@hussein_gulam?is_from_webapp=1&sender_device=pc', icon: siTiktok},
 ];
 
 export function Footer() {
