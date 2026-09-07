@@ -59,9 +59,9 @@ function VideoCard({ video, index }: VideoCardProps) {
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  // video.id is the field requested from TikTok's /v2/video/list/ endpoint.
-  // Guard against a missing id so the embed URL is never "/embed/v2/undefined".
-  const videoId = video.id ?? '';
+  // video.id is normalised by the backend (id || item_id).
+  // Guard against missing/literal-"undefined" ids so the embed URL is always valid.
+  const videoId = (video.id && video.id !== 'undefined') ? video.id : (video.item_id ?? '');
 
   return (
     <motion.div
@@ -364,9 +364,13 @@ export default function TikTokGallery() {
               </motion.div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                {videos.map((video, i) => (
-                  <VideoCard key={video.id ?? i} video={video} index={i} />
-                ))}
+                {videos
+                  // Second line of defence: drop any video that still has no
+                  // usable ID even after the backend normalisation step.
+                  .filter(v => v.id && v.id !== 'undefined')
+                  .map((video, i) => (
+                    <VideoCard key={video.id} video={video} index={i} />
+                  ))}
               </div>
             )}
 

@@ -9,7 +9,8 @@
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface TikTokVideo {
-  id:              string;
+  id:              string;   // normalised on the backend: id || item_id
+  item_id?:        string;   // raw field TikTok may return instead of id
   title:           string;
   cover_image_url: string;
   share_url:       string;
