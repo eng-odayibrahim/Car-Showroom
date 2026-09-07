@@ -14,6 +14,7 @@ const timeline = [
   { key: 'squareMotors', year: '2023' },
   { key: 'guangzhou', year: '2024' },
   { key: 'rental', year: '2024' },
+  { key: 'mauritania', year: '2024' },
   { key: 'spareParts', year: '2026' },
 ];
 

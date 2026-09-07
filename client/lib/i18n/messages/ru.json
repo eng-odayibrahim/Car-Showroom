@@ -36,6 +36,14 @@
     "primary": "Начать",
     "secondary": "Связаться с нами"
   },
+  "beforeAboutUs": {
+    "title": "Company Overview",
+    "p1": "Hussein Ghulam Motors was established in 1985 in Salah al-Din, Iraq, by Mr. Hussein Ghulam, with a vision that grew from within the automotive sector and the market reality itself through three essential elements.",
+    "p2": "The company is still known today for: market understanding, continuous movement, and trust.",
+    "p3": "The company's presence was not the result of fleeting transactions or temporary opportunities, but was built over years of work, direct contact with market dynamics, and the ability to navigate a sector where mere appearance is not enough; it requires real presence and continuity.",
+    "p4": "Over four decades, the company has evolved from an established local operation into a multi-market automotive group, combining trade, supply and export, logistics, and operational processes within a broader model that is highly capable of serving customers and markets.",
+    "p5": "Today, the value of the company is not only measured by its long history but by the ecosystem it has successfully built—an ecosystem based on accumulated experience, extended presence, and the ability to expand clearly and steadily."
+  },
   "about": {
     "title": "О нас",
     "timeline": {
@@ -82,6 +90,10 @@
       "spareParts": {
         "title": "HG Spare Parts",
         "desc": "Выход на рынок запасных частей под брендом HG Spare Parts."
+      },
+      "mauritania": {
+        "title": "Mauritania",
+        "desc": "Entering the African market through a showroom in Nouakchott."
       }
     }
   },
