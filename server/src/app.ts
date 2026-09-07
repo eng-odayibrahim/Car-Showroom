@@ -21,8 +21,21 @@ export async function createApp(): Promise<Application> {
   const app = express();
 
   // ── Middleware ────────────────────────────────────────
+  const allowedOrigins = [
+    'https://husseinghulam.com',
+    'https://www.husseinghulam.com',
+    'http://localhost:3000',
+  ];
+
   app.use(cors({
-    origin: process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Allow server-to-server requests (no Origin header) and listed origins
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' is not allowed`));
+      }
+    },
     credentials: true,
   }));
   app.use(cookieParser());
