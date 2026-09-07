@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useI18n } from '@/lib/i18n';
-import { siFacebook, siInstagram, siTiktok } from 'simple-icons/icons';
+import { siFacebook, siInstagram, siTiktok, siYoutube } from 'simple-icons/icons';
 
 const QuickLinks = [
   { nameKey: 'navbar.home', link: '/' },
@@ -11,10 +11,10 @@ const QuickLinks = [
 ];
 
 const Brands = [
-  { nameKey: 'brands.names.toyota',  make: 'Toyota'  },
-  { nameKey: 'brands.names.nissan',  make: 'Nissan'  },
-  { nameKey: 'brands.names.honda',   make: 'Honda'   },
-  { nameKey: 'brands.names.tata',    make: 'Tata'    },
+  { nameKey: 'brands.names.toyota', make: 'Toyota' },
+  { nameKey: 'brands.names.nissan', make: 'Nissan' },
+  { nameKey: 'brands.names.honda', make: 'Honda' },
+  { nameKey: 'brands.names.tata', make: 'Tata' },
   { nameKey: 'brands.names.hyundai', make: 'Hyundai' },
 ];
 
@@ -26,7 +26,8 @@ const policies = [
 const Social = [
   { link: 'https://www.facebook.com/husseinghulammotorsfzco', icon: siFacebook },
   { link: 'https://www.instagram.com/husseinghulammotors', icon: siInstagram },
-  { link: 'https://www.tiktok.com/@hussein_gulam?is_from_webapp=1&sender_device=pc', icon: siTiktok},
+  { link: 'https://www.tiktok.com/@hussein_gulam?is_from_webapp=1&sender_device=pc', icon: siTiktok },
+  { link: 'https://www.youtube.com/@husseinghulammotor?si=sZfzek_UAHjHYLcF', icon: siYoutube }
 ];
 
 export function Footer() {
@@ -58,22 +59,22 @@ export function Footer() {
             </ul>
           </div>
 
-         <div>
-  <h3 className="text-white text-lg font-medium mb-5">{t('footer.ourBrands')}</h3>
-  <ul className="space-y-3 text-sm">
-    {Brands.map((brand, i) => (
-      <li key={i}>
-        <a
-          href={`/cars?make=${encodeURIComponent(brand.make)}&page=1&perPage=12`}
-          className="group inline-block relative hover:text-white transition duration-200"
-        >
-          {t(brand.nameKey)}
-          <span className="absolute left-0 -bottom-1 w-0 h-[1px] bg-[#C8A24A] group-hover:w-full transition-all duration-200" />
-        </a>
-      </li>
-    ))}
-  </ul>
-</div>
+          <div>
+            <h3 className="text-white text-lg font-medium mb-5">{t('footer.ourBrands')}</h3>
+            <ul className="space-y-3 text-sm">
+              {Brands.map((brand, i) => (
+                <li key={i}>
+                  <a
+                    href={`/cars?make=${encodeURIComponent(brand.make)}&page=1&perPage=12`}
+                    className="group inline-block relative hover:text-white transition duration-200"
+                  >
+                    {t(brand.nameKey)}
+                    <span className="absolute left-0 -bottom-1 w-0 h-[1px] bg-[#C8A24A] group-hover:w-full transition-all duration-200" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
           <div>
             <h3 className="text-white text-lg font-medium mb-5">{t('footer.connectionTitle')}</h3>
             <ul className="space-y-3 text-sm text-neutral-400">

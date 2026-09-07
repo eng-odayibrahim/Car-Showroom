@@ -10,6 +10,7 @@ import type { CarFilters as ICarFilters } from '../types/car.types';
 import Hero from '@/components/sections/Hero';
 import FAQ from '@/components/sections/Faq';
 import OurServices from '@/components/sections/Our-Services';
+import TiktokGallery from '@/components/sections/TikTokGallery';
 import { SlidersHorizontal, SearchX, X } from 'lucide-react';
 import { Translate } from '@/lib/i18n';
 
@@ -120,6 +121,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
       <OurServices />
       <FAQ />
+      <TiktokGallery />
     </div>
   );
 }

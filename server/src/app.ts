@@ -1,5 +1,6 @@
 import express, { type Application } from 'express';
 import cors                           from 'cors';
+import cookieParser                   from 'cookie-parser';
 import path                           from 'path';
 import { CarRepository }             from './modules/cars/infrastructure/car.repository';
 import { DubicarsApiClient }         from './modules/cars/infrastructure/external/dubicars-api.client';
@@ -12,6 +13,7 @@ import { createIdentityRouter }      from './modules/identity/interfaces/identit
 import { SettingRepository }         from './modules/settings/infrastructure/setting.repository';
 import { SettingsService }           from './modules/settings/application/settings.service';
 import { createSettingsRouter }      from './modules/settings/interfaces/settings.controller';
+import { createTikTokRouter }        from './modules/tiktok/tiktok.controller';
 import { errorHandler }              from './shared/errors/error-handler.middleware';
 import { startSyncScheduler }        from './shared/scheduler/sync.scheduler';
 
@@ -19,7 +21,11 @@ export async function createApp(): Promise<Application> {
   const app = express();
 
   // ── Middleware ────────────────────────────────────────
-  app.use(cors());
+  app.use(cors({
+    origin: process.env['FRONTEND_URL'] ?? 'http://localhost:3000',
+    credentials: true,
+  }));
+  app.use(cookieParser());
   app.use(express.json());
   app.use('/uploads', express.static(path.resolve(storageRoot)));
 
@@ -43,6 +49,7 @@ export async function createApp(): Promise<Application> {
   app.use('/api/cars',     createCarRouter(carService));
   app.use('/api/uploads',  createUploadRouter());
   app.use('/api/settings', createSettingsRouter(settingsService));
+  app.use('/api/tiktok',   createTikTokRouter());
 
   // Health check
   app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date() }));
