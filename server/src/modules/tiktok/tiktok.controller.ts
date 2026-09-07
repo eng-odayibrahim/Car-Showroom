@@ -168,12 +168,13 @@ export function createTikTokRouter(): Router {
       // CSRF state token (in production, also validate this in /callback)
       const csrfState = crypto.randomBytes(16).toString('hex');
 
-      // Persist verifier in an HttpOnly cookie — inaccessible to JavaScript
+      // sameSite:'none' + secure:true is required so the browser sends this
+      // cookie back on the cross-site redirect that returns from TikTok.
       res.cookie(PKCE_COOKIE_NAME, codeVerifier, {
         httpOnly: true,
-        secure:   process.env['NODE_ENV'] === 'production', // HTTPS only in prod
-        sameSite: 'lax',
-        maxAge:   PKCE_COOKIE_MAX_AGE_MS,
+        secure:   true,
+        sameSite: 'none',
+        maxAge:   300000, // 5 minutes — matches TikTok's auth code TTL
         path:     '/api/tiktok',
       });
 
@@ -281,8 +282,10 @@ export function createTikTokRouter(): Router {
 
       console.log('✅ TikTok token stored — openId:', tokenStore.openId);
 
+      // Redirect back to the frontend — the TikTokGallery component will
+      // re-check /api/tiktok/status on mount and hide the authorize button.
       const frontendOrigin = process.env['FRONTEND_URL'] ?? 'http://localhost:3000';
-      res.redirect(`${frontendOrigin}/?tiktok=authorized`);
+      res.redirect(frontendOrigin);
     } catch (err) {
       next(err);
     }
