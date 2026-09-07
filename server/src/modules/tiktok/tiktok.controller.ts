@@ -312,11 +312,8 @@ export function createTikTokRouter(): Router {
         });
       }
 
-      // Request both 'id' and 'item_id' — TikTok's sandbox can return the
-      // video identifier under either field name depending on the API version.
       const fields = [
         'id',
-        'item_id',
         'title',
         'cover_image_url',
         'share_url',
@@ -334,8 +331,7 @@ export function createTikTokRouter(): Router {
       ) as {
         data?: {
           videos?: Array<{
-            id?:             string;
-            item_id?:        string;
+            id:              string;
             title:           string;
             cover_image_url: string;
             share_url:       string;
@@ -364,11 +360,8 @@ export function createTikTokRouter(): Router {
         console.log('[TikTok] First video sample:', JSON.stringify(rawVideos[0], null, 2));
       }
 
-      // Normalise: ensure every video has `id` set, falling back to `item_id`.
-      // Filter out any entry that still has no usable identifier (sandbox artifacts).
-      const videos = rawVideos
-        .map(v => ({ ...v, id: v.id || v.item_id || '' }))
-        .filter(v => v.id && v.id !== 'undefined');
+      // Filter out any video with a missing or invalid id (can occur in sandbox).
+      const videos = rawVideos.filter(v => v.id && v.id !== 'undefined');
 
       return res.json({ success: true, data: videos });
     } catch (err) {

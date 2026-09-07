@@ -59,9 +59,8 @@ function VideoCard({ video, index }: VideoCardProps) {
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  // video.id is normalised by the backend (id || item_id).
-  // Guard against missing/literal-"undefined" ids so the embed URL is always valid.
-  const videoId = (video.id && video.id !== 'undefined') ? video.id : (video.item_id ?? '');
+  // Guard: never let the embed URL be ".../embed/v2/undefined".
+  const videoId = (video.id && video.id !== 'undefined') ? video.id : '';
 
   return (
     <motion.div
