@@ -17,9 +17,9 @@
  *          #050505 background and #C8A24A gold accent palette.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Eye, Heart, Share2, ExternalLink, Lock } from 'lucide-react';
+import { Play, Eye, Heart, Share2, X, Lock } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
 import { getStoredAuth, isAdmin as checkIsAdmin } from '../../lib/auth/auth';
 
@@ -36,21 +36,120 @@ function formatCount(n: number): string {
   return String(n);
 }
 
+// ── Video Modal ───────────────────────────────────────────────────────────────
+
+interface VideoModalProps {
+  video: TikTokVideo;
+  onClose: () => void;
+}
+
+function VideoModal({ video, onClose }: VideoModalProps) {
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+
+  // Escape key closes modal; restore scroll on unmount
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    closeBtnRef.current?.focus();
+    return () => {
+      window.removeEventListener('keydown', handler);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return (
+    <AnimatePresence>
+      {/* Backdrop */}
+      <motion.div
+        key="modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+        onClick={onClose}
+        className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        aria-label="Close video"
+      >
+        {/* Panel — stops click propagation so clicking the iframe doesn't close */}
+        <motion.div
+          key="modal-panel"
+          initial={{ opacity: 0, scale: 0.94, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 24 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full flex flex-col items-center"
+          style={{ maxWidth: 400 }}
+        >
+          {/* Gold top accent bar */}
+          <div className="w-full h-[2px] bg-[#C8A24A]" />
+
+          {/* Header */}
+          <div className="w-full flex items-center justify-between bg-[#0d0d0d] border-x border-neutral-800 px-4 py-3">
+            <p className="text-[12px] tracking-[0.18em] uppercase text-neutral-400 font-medium truncate pr-4">
+              {video.title || 'Hussein Ghulam Motors'}
+            </p>
+            <button
+              ref={closeBtnRef}
+              onClick={onClose}
+              aria-label="Close video"
+              className="flex-shrink-0 w-7 h-7 flex items-center justify-center text-neutral-500 hover:text-white hover:bg-neutral-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* TikTok embed iframe — 9:16 phone ratio */}
+          <div className="w-full border-x border-b border-neutral-800 bg-[#050505]" style={{ aspectRatio: '9/16' }}>
+            <iframe
+              src={`https://www.tiktok.com/embed/v2/${video.id}`}
+              width="100%"
+              height="100%"
+              frameBorder={0}
+              allow="fullscreen"
+              allowFullScreen
+              title={video.title || 'TikTok video'}
+              style={{ display: 'block' }}
+            />
+          </div>
+
+          {/* Footer — stats strip */}
+          <div className="w-full flex items-center gap-5 bg-[#0d0d0d] border-x border-b border-neutral-800 px-4 py-3">
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+              <Eye className="w-3 h-3 text-[#C8A24A]" /> {formatCount(video.view_count ?? 0)}
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+              <Heart className="w-3 h-3 text-[#C8A24A]" /> {formatCount(video.like_count ?? 0)}
+            </span>
+            <span className="flex items-center gap-1.5 text-[11px] text-neutral-400">
+              <Share2 className="w-3 h-3 text-[#C8A24A]" /> {formatCount(video.share_count ?? 0)}
+            </span>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 interface VideoCardProps {
   video: TikTokVideo;
   index: number;
+  onOpen: (video: TikTokVideo) => void;
 }
 
-function VideoCard({ video, index }: VideoCardProps) {
+function VideoCard({ video, index, onOpen }: VideoCardProps) {
   const [hovered, setHovered] = useState(false);
 
   return (
-    <motion.a
-      href={video.share_url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <motion.div
+      role="button"
+      tabIndex={0}
+      aria-label={`Watch: ${video.title || 'TikTok video'}`}
+      onClick={() => onOpen(video)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onOpen(video); }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.07, ease: 'easeOut' }}
@@ -124,12 +223,12 @@ function VideoCard({ video, index }: VideoCardProps) {
         </p>
         <div className="mt-auto flex items-center justify-between">
           <span className="text-[10px] tracking-[0.2em] uppercase text-neutral-600 font-medium">
-            Watch on TikTok
+            Watch Video
           </span>
-          <ExternalLink className="w-3.5 h-3.5 text-neutral-700 group-hover:text-[#C8A24A] transition-colors" />
+          <Play className="w-3 h-3 text-neutral-700 group-hover:text-[#C8A24A] transition-colors" />
         </div>
       </div>
-    </motion.a>
+    </motion.div>
   );
 }
 
@@ -155,10 +254,11 @@ function VideoSkeleton({ index }: { index: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TikTokGallery() {
-  const [status, setStatus]   = useState<'idle' | 'loading' | 'connected' | 'disconnected' | 'error'>('idle');
-  const [videos, setVideos]   = useState<TikTokVideo[]>([]);
-  const [error, setError]     = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [status, setStatus]     = useState<'idle' | 'loading' | 'connected' | 'disconnected' | 'error'>('idle');
+  const [videos, setVideos]     = useState<TikTokVideo[]>([]);
+  const [error, setError]       = useState('');
+  const [isAdmin, setIsAdmin]   = useState(false);
+  const [activeVideo, setActiveVideo] = useState<TikTokVideo | null>(null);
 
   // ── Check admin role on mount (client-only) ──────────────────────────────
   useEffect(() => {
@@ -205,7 +305,13 @@ export default function TikTokGallery() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <section className="bg-[#050505] py-20 px-6">
+    <>
+      {/* Video modal — rendered outside the section so it overlays everything */}
+      {activeVideo && (
+        <VideoModal video={activeVideo} onClose={() => setActiveVideo(null)} />
+      )}
+
+      <section className="bg-[#050505] py-20 px-6">
       <div className="max-w-6xl mx-auto">
 
         {/* ── Section header ── */}
@@ -338,9 +444,9 @@ export default function TikTokGallery() {
                 )}
               </motion.div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {videos.map((video, i) => (
-                  <VideoCard key={video.id} video={video} index={i} />
+                  <VideoCard key={video.id} video={video} index={i} onOpen={setActiveVideo} />
                 ))}
               </div>
             )}
@@ -373,6 +479,7 @@ export default function TikTokGallery() {
           </>
         )}
       </div>
-    </section>
+      </section>
+    </>
   );
 }
