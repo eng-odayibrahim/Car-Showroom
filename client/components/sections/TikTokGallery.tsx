@@ -109,8 +109,7 @@ function VideoCard({ video, index }: VideoCardProps) {
                   width="100%"
                   height="100%"
                   frameBorder={0}
-                  allow="fullscreen; autoplay"
-                  allowFullScreen
+                  allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; accelerometer; gyroscope"
                   title={video.title || 'TikTok video'}
                   style={{ display: 'block', border: 'none' }}
                 />
