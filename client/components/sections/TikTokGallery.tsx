@@ -19,7 +19,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Eye, Heart, Share2, X, Lock } from 'lucide-react';
+import { Play, X, Lock } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
 import { getStoredAuth, isAdmin as checkIsAdmin } from '../../lib/auth/auth';
 
@@ -27,14 +27,6 @@ import { getStoredAuth, isAdmin as checkIsAdmin } from '../../lib/auth/auth';
 const BACKEND_ORIGIN =
   process.env['NEXT_PUBLIC_API_URL']?.replace(/\/api$/, '') ?? 'http://localhost:4000';
 const TIKTOK_LOGIN_URL = `${BACKEND_ORIGIN}/api/tiktok/login`;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
 
 // TikTok icon path — reused across the file
 const TIKTOK_PATH =
@@ -167,36 +159,11 @@ function VideoCard({ video, index }: VideoCardProps) {
                   </motion.div>
                 )}
               </AnimatePresence>
-
-              {/* Stats — bottom of thumbnail */}
-              <div className="absolute bottom-3 left-3 right-3 flex items-center gap-3 pointer-events-none">
-                <span className="flex items-center gap-1 text-[11px] text-neutral-300 font-medium">
-                  <Eye className="w-3 h-3 text-[#C8A24A]" />
-                  {formatCount(video.view_count ?? 0)}
-                </span>
-                <span className="flex items-center gap-1 text-[11px] text-neutral-300 font-medium">
-                  <Heart className="w-3 h-3 text-[#C8A24A]" />
-                  {formatCount(video.like_count ?? 0)}
-                </span>
-                <span className="flex items-center gap-1 text-[11px] text-neutral-300 font-medium">
-                  <Share2 className="w-3 h-3 text-[#C8A24A]" />
-                  {formatCount(video.share_count ?? 0)}
-                </span>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-      {/* ── Caption (hidden while playing to keep the card compact) ── */}
-      {!playing && (
-        <div className="px-3 py-3 flex items-center justify-between border-t border-neutral-800/60">
-          <p className="text-[12px] text-neutral-400 font-medium leading-snug line-clamp-1 group-hover:text-neutral-200 transition-colors">
-            {video.title || 'Hussein Ghulam Motors'}
-          </p>
-          <Play className="w-3 h-3 text-neutral-700 group-hover:text-[#C8A24A] transition-colors flex-shrink-0 ml-2" />
-        </div>
-      )}
     </motion.div>
   );
 }

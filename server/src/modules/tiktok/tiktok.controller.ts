@@ -317,10 +317,6 @@ export function createTikTokRouter(): Router {
         'title',
         'cover_image_url',
         'share_url',
-        'view_count',
-        'like_count',
-        'comment_count',
-        'share_count',
         'create_time',
       ].join(',');
 

@@ -13,10 +13,6 @@ export interface TikTokVideo {
   title:           string;
   cover_image_url: string;
   share_url:       string;
-  view_count:      number;
-  like_count:      number;
-  comment_count:   number;
-  share_count:     number;
   create_time:     number; // Unix timestamp (seconds)
 }
 
