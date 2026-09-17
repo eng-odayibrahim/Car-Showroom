@@ -408,14 +408,36 @@ export function createTikTokRouter(): Router {
 
       const rawVideos = data.data?.videos ?? [];
 
-      // Log the shape of the first video once to help diagnose field naming.
+      // ── Diagnostic logging — shows the exact shape TikTok returns ────────────
+      console.log('[TikTok] Raw video count:', rawVideos.length);
       if (rawVideos.length > 0) {
         console.log('[TikTok] First video keys:', Object.keys(rawVideos[0]));
-        console.log('[TikTok] First video sample:', JSON.stringify(rawVideos[0], null, 2));
+        console.log('[TikTok] First video (full):', JSON.stringify(rawVideos[0], null, 2));
+      } else {
+        // Log the full raw data object so we can see what TikTok actually sent
+        console.log('[TikTok] Full API response (no videos):', JSON.stringify(data, null, 2));
       }
 
-      // Filter out any video with a missing or invalid id (can occur in sandbox).
-      const videos = rawVideos.filter(v => v.id && v.id !== 'undefined');
+      // ── Normalise + filter videos ─────────────────────────────────────────────
+      //
+      // TikTok Sandbox may return:
+      //   • id: null            → drop
+      //   • id: ""              → drop
+      //   • id: "undefined"     → drop
+      //   • id: 123456 (number) → coerce to string
+      //
+      const videos = rawVideos
+        .map(v => ({
+          ...v,
+          // Coerce numeric ids (Sandbox quirk) to string
+          id: v.id != null ? String(v.id) : '',
+        }))
+        .filter(v => v.id && v.id !== 'undefined' && v.id !== 'null');
+
+      console.log('[TikTok] Videos after normalisation:', videos.length);
+      if (videos.length === 0 && rawVideos.length > 0) {
+        console.warn('[TikTok] ⚠️  All videos were dropped by the id filter — check the raw log above.');
+      }
 
       return res.json({ success: true, data: videos });
     } catch (err) {
