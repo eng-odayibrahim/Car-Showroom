@@ -51,8 +51,14 @@ function VideoCard({ video, index }: VideoCardProps) {
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  // Guard: never let the embed URL be ".../embed/v2/undefined".
-  const videoId = (video.id && video.id !== 'undefined') ? video.id : '';
+  // Guard: extract video ID from video.id or video.share_url
+  let videoId = (video.id && video.id !== 'undefined' && video.id !== 'null') ? String(video.id) : '';
+  if (!videoId && video.share_url) {
+    const match = video.share_url.match(/\/video\/(\d+)/);
+    if (match?.[1]) {
+      videoId = match[1];
+    }
+  }
 
   return (
     <motion.div
@@ -97,7 +103,7 @@ function VideoCard({ video, index }: VideoCardProps) {
 
               {videoId ? (
                 <iframe
-                  src={`https://www.tiktok.com/embed/v2/${videoId}`}
+                  src={`https://www.tiktok.com/player/v1/${videoId}`}
                   width="100%"
                   height="100%"
                   frameBorder={0}
@@ -330,12 +336,11 @@ export default function TikTokGallery() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {videos
-                  // Second line of defence: drop any video that still has no
-                  // usable ID even after the backend normalisation step.
-                  .filter(v => v.id && v.id !== 'undefined')
-                  .map((video, i) => (
-                    <VideoCard key={video.id} video={video} index={i} />
-                  ))}
+                  .filter(v => (v.id && v.id !== 'undefined') || (v.share_url && /\/video\/\d+/.test(v.share_url)))
+                  .map((video, i) => {
+                    const vid = (video.id && video.id !== 'undefined') ? video.id : (video.share_url?.match(/\/video\/(\d+)/)?.[1] ?? `v-${i}`);
+                    return <VideoCard key={vid} video={video} index={i} />;
+                  })}
               </div>
             )}
 
