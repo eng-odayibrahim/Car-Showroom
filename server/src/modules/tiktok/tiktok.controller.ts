@@ -414,24 +414,38 @@ export function createTikTokRouter(): Router {
         console.log('[TikTok] First video keys:', Object.keys(rawVideos[0]));
         console.log('[TikTok] First video (full):', JSON.stringify(rawVideos[0], null, 2));
       } else {
-        // Log the full raw data object so we can see what TikTok actually sent
         console.log('[TikTok] Full API response (no videos):', JSON.stringify(data, null, 2));
       }
 
       // ── Normalise + filter videos ─────────────────────────────────────────────
       //
-      // TikTok Sandbox may return:
-      //   • id: null            → drop
-      //   • id: ""              → drop
-      //   • id: "undefined"     → drop
-      //   • id: 123456 (number) → coerce to string
+      // TikTok Sandbox sometimes returns id: undefined (omitted in JSON), but
+      // the real video ID is always embedded in share_url:
+      //   https://www.tiktok.com/@user/video/7685743352704191765?...
       //
+      // Strategy:
+      //   1. Coerce numeric ids to string
+      //   2. If id is still falsy, extract it from share_url as a fallback
+      //   3. Drop the video only if we still have no usable id
+      //
+      const ID_FROM_URL_RE = /\/video\/(\d+)/;
+
       const videos = rawVideos
-        .map(v => ({
-          ...v,
-          // Coerce numeric ids (Sandbox quirk) to string
-          id: v.id != null ? String(v.id) : '',
-        }))
+        .map(v => {
+          // Step 1: coerce to string (handles numeric ids from Sandbox)
+          let resolvedId = v.id != null ? String(v.id) : '';
+
+          // Step 2: fallback — extract from share_url
+          if (!resolvedId || resolvedId === 'undefined' || resolvedId === 'null') {
+            const match = v.share_url ? ID_FROM_URL_RE.exec(v.share_url) : null;
+            if (match) {
+              resolvedId = match[1];
+              console.log(`[TikTok] Resolved id from share_url: ${resolvedId}`);
+            }
+          }
+
+          return { ...v, id: resolvedId };
+        })
         .filter(v => v.id && v.id !== 'undefined' && v.id !== 'null');
 
       console.log('[TikTok] Videos after normalisation:', videos.length);
