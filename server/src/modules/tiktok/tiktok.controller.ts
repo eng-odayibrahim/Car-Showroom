@@ -26,6 +26,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import crypto from 'crypto';
 import https  from 'https';
+import mongoose, { Schema, type Model, type Document } from 'mongoose';
 
 // ── PKCE constants ────────────────────────────────────────────────────────────
 
@@ -34,16 +35,70 @@ const PKCE_COOKIE_NAME = 'tt_code_verifier';
 // Cookie lifetime — slightly longer than TikTok's auth code TTL (10 min).
 const PKCE_COOKIE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
 
-// ── In-memory token store (sufficient for sandbox / demo) ─────────────────────
+// ── Mongoose model — persists token across server restarts ────────────────────
+
+interface ITikTokTokenDocument extends Document {
+  accessToken:   string;
+  openId:        string;
+  expiresAt:     number;    // ms since epoch
+  refreshToken?: string;
+}
+
+const TikTokTokenSchema = new Schema<ITikTokTokenDocument>({
+  accessToken:  { type: String, required: true },
+  openId:       { type: String, required: true },
+  expiresAt:    { type: Number, required: true },
+  refreshToken: { type: String },
+});
+
+const TikTokTokenModel: Model<ITikTokTokenDocument> =
+  mongoose.models['TikTokToken'] ??
+  mongoose.model<ITikTokTokenDocument>('TikTokToken', TikTokTokenSchema);
+
+// ── Token helpers — read/write through MongoDB, cache in RAM for speed ────────
 
 interface TokenStore {
   accessToken:  string;
   openId:       string;
-  expiresAt:    number;   // ms since epoch
+  expiresAt:    number;
   refreshToken?: string;
 }
 
-let tokenStore: TokenStore | null = null;
+/** RAM cache — invalidated on save/clear */
+let _cachedToken: TokenStore | null = null;
+
+async function loadToken(): Promise<TokenStore | null> {
+  if (_cachedToken) return _cachedToken;
+  const doc = await TikTokTokenModel.findOne().sort({ expiresAt: -1 }).lean();
+  if (!doc) return null;
+  _cachedToken = {
+    accessToken:  doc.accessToken,
+    openId:       doc.openId,
+    expiresAt:    doc.expiresAt,
+    refreshToken: doc.refreshToken,
+  };
+  return _cachedToken;
+}
+
+async function saveToken(token: TokenStore): Promise<void> {
+  // Keep only one token document (upsert)
+  await TikTokTokenModel.findOneAndUpdate(
+    {},
+    {
+      accessToken:  token.accessToken,
+      openId:       token.openId,
+      expiresAt:    token.expiresAt,
+      refreshToken: token.refreshToken,
+    },
+    { upsert: true, new: true }
+  );
+  _cachedToken = token;
+}
+
+async function clearToken(): Promise<void> {
+  await TikTokTokenModel.deleteMany({});
+  _cachedToken = null;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -272,15 +327,16 @@ export function createTikTokRouter(): Router {
         return res.status(400).json({ success: false, message });
       }
 
-      // Store in-memory
-      tokenStore = {
+      // Persist token to MongoDB — survives server restarts
+      await saveToken({
         accessToken:  tokenResponse.access_token,
         openId:       tokenResponse.open_id ?? '',
         expiresAt:    Date.now() + (tokenResponse.expires_in ?? 86400) * 1000,
         refreshToken: tokenResponse.refresh_token,
-      };
+      });
 
-      console.log('✅ TikTok token stored — openId:', tokenStore.openId);
+      const stored = await loadToken();
+      console.log('✅ TikTok token saved to DB — openId:', stored?.openId);
 
       // Redirect back to the frontend — the TikTokGallery component will
       // re-check /api/tiktok/status on mount and hide the authorize button.
@@ -297,6 +353,8 @@ export function createTikTokRouter(): Router {
    */
   router.get('/videos', async (_req: Request, res: Response, next: NextFunction) => {
     try {
+      const tokenStore = await loadToken();
+
       if (!tokenStore) {
         return res.status(401).json({
           success: false,
@@ -305,7 +363,7 @@ export function createTikTokRouter(): Router {
       }
 
       if (Date.now() > tokenStore.expiresAt) {
-        tokenStore = null;
+        await clearToken();
         return res.status(401).json({
           success: false,
           message: 'TikTok access token expired. Re-authorize via /api/tiktok/login.',
@@ -366,9 +424,11 @@ export function createTikTokRouter(): Router {
   });
 
   // ── 4. GET /api/tiktok/status ─────────────────────────────────────────────
-  router.get('/status', (_req: Request, res: Response) => {
+  router.get('/status', async (_req: Request, res: Response) => {
+    const tokenStore = await loadToken();
+
     if (!tokenStore || Date.now() > tokenStore.expiresAt) {
-      tokenStore = null;
+      await clearToken();
       return res.json({ success: true, connected: false });
     }
 
