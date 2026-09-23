@@ -17,9 +17,9 @@
  *          #050505 background and #C8A24A gold accent palette.
  */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
 import { getStoredAuth, isAdmin as checkIsAdmin } from '../../lib/auth/auth';
 
@@ -48,10 +48,7 @@ interface VideoCardProps {
 }
 
 function VideoCard({ video, index }: VideoCardProps) {
-  const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
-  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Guard: extract video ID from video.id or video.share_url
   let videoId = (video.id && video.id !== 'undefined' && video.id !== 'null') ? String(video.id) : '';
@@ -62,45 +59,6 @@ function VideoCard({ video, index }: VideoCardProps) {
 
   const tiktokUrl = video.share_url || (videoId ? `https://www.tiktok.com/video/${videoId}` : 'https://www.tiktok.com');
 
-  // Listen for TikTok player postMessage events.
-  // errorCode 2007 = invalid_param (domain not whitelisted / video not embeddable).
-  useEffect(() => {
-    if (!playing) return;
-
-    const handleMessage = (event: MessageEvent) => {
-      if (!event.origin.includes('tiktok.com')) return;
-      try {
-        const data: unknown = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (data && typeof data === 'object') {
-          const d = data as Record<string, unknown>;
-          // Error reported by TikTok player
-          if (d['errorCode'] || d['errorType']) {
-            const code = d['errorCode'] as number | undefined;
-            const msg = code === 2007
-              ? 'Domain not whitelisted in TikTok Developer Portal.'
-              : `TikTok player error (code ${code ?? 'unknown'}).`;
-            setPlayerError(msg);
-            setPlaying(false);
-          }
-          // Player ready — clear any previous error
-          if (d['type'] === 'onPlayerReady' || d['type'] === 'player:ready') {
-            setPlayerError(null);
-          }
-        }
-      } catch {
-        // Ignore non-JSON messages from other origins
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [playing]);
-
-  const handlePlay = () => {
-    setPlayerError(null);
-    setPlaying(true);
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -110,134 +68,61 @@ function VideoCard({ video, index }: VideoCardProps) {
     >
       {/* ── Top gold accent bar ── */}
       <div
-        className={`h-[2px] w-full bg-[#C8A24A] transition-transform duration-300 origin-left ${hovered || playing ? 'scale-x-100' : 'scale-x-0'
-          }`}
+        className={`h-[2px] w-full bg-[#C8A24A] transition-transform duration-300 origin-left ${
+          hovered ? 'scale-x-100' : 'scale-x-0'
+        }`}
       />
 
       {/* ── Media area — fixed 9:16 aspect ratio ── */}
-      <div
-        className="relative w-full overflow-hidden bg-neutral-900"
+      <a
+        href={tiktokUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Watch on TikTok: ${video.title || 'TikTok video'}`}
+        className="relative block w-full overflow-hidden bg-neutral-900"
         style={{ aspectRatio: '9 / 16' }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <AnimatePresence mode="wait">
-          {playing ? (
-            /* ── Inline iframe ── */
+        {/* Cover image */}
+        {video.cover_image_url ? (
+          <img
+            src={video.cover_image_url}
+            alt={video.title || 'TikTok video'}
+            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-neutral-900">
+            <Play className="w-10 h-10 text-neutral-700" />
+          </div>
+        )}
+
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-80 pointer-events-none" />
+
+        {/* Animated play button — TikTok icon on hover */}
+        <AnimatePresence>
+          {hovered && (
             <motion.div
-              key="iframe"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="absolute inset-0"
+              key="play-btn"
+              initial={{ opacity: 0, scale: 0.75 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.75 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none"
             >
-              {/* Close button */}
-              <button
-                onClick={() => setPlaying(false)}
-                aria-label="Close video"
-                className="absolute top-2 right-2 z-10 w-7 h-7 flex items-center justify-center bg-[#050505]/80 border border-neutral-700 text-neutral-400 hover:text-white hover:border-[#C8A24A] transition-colors"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-
-              {videoId ? (
-                <iframe
-                  ref={iframeRef}
-                  src={`https://www.tiktok.com/player/v1/${videoId}`}
-                  width="100%"
-                  height="100%"
-                  frameBorder={0}
-                  allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; accelerometer; gyroscope"
-                  title={video.title || 'TikTok video'}
-                  style={{ display: 'block', border: 'none' }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs px-4 text-center">
-                  Video ID unavailable — please try re-authorizing TikTok.
-                </div>
-              )}
-            </motion.div>
-          ) : (
-            /* ── Thumbnail ── */
-            <motion.div
-              key="thumbnail"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 cursor-pointer"
-              onClick={playerError ? undefined : handlePlay}
-              role={playerError ? undefined : 'button'}
-              tabIndex={playerError ? undefined : 0}
-              aria-label={`Play: ${video.title || 'TikTok video'}`}
-              onKeyDown={(e) => { if (!playerError && (e.key === 'Enter' || e.key === ' ')) handlePlay(); }}
-            >
-              {/* Cover image */}
-              {video.cover_image_url ? (
-                <img
-                  src={video.cover_image_url}
-                  alt={video.title || 'TikTok video'}
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-neutral-900">
-                  <Play className="w-10 h-10 text-neutral-700" />
-                </div>
-              )}
-
-              {/* Gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-80 pointer-events-none" />
-
-              {/* Error overlay */}
-              <AnimatePresence>
-                {playerError ? (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#050505]/85 px-4 text-center pointer-events-auto"
-                  >
-                    <TikTokIcon className="w-6 h-6 text-neutral-600" />
-                    <p className="text-neutral-400 text-[11px] leading-relaxed">
-                      {playerError}
-                    </p>
-                    <a
-                      href={tiktokUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-[#C8A24A]/50 text-[#C8A24A] text-[10px] font-semibold uppercase tracking-wide hover:bg-[#C8A24A] hover:text-[#050505] transition-colors"
-                    >
-                      Open on TikTok ↗
-                    </a>
-                  </motion.div>
-                ) : (
-                  /* Animated play button */
-                  hovered && (
-                    <motion.div
-                      key="play-btn"
-                      initial={{ opacity: 0, scale: 0.75 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.75 }}
-                      transition={{ duration: 0.18, ease: 'easeOut' }}
-                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-[#C8A24A]/90 flex items-center justify-center shadow-xl shadow-black/40">
-                        <Play className="w-6 h-6 text-[#050505] translate-x-0.5" />
-                      </div>
-                    </motion.div>
-                  )
-                )}
-              </AnimatePresence>
+              <div className="w-14 h-14 rounded-full bg-[#C8A24A]/90 flex items-center justify-center shadow-xl shadow-black/40">
+                <TikTokIcon className="w-6 h-6 text-[#050505]" />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </a>
 
     </motion.div>
   );
 }
+
 
 // ── Skeleton card ─────────────────────────────────────────────────────────────
 
