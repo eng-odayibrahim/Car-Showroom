@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 // -- Config ------------------------------------------------------------------
-const WHATSAPP_PHONE = '+971543141978'; // Replace with real number (no + or spaces)
+const WHATSAPP_PHONE = '+971507934501'; // Replace with real number (no + or spaces)
 const WHATSAPP_MESSAGE = '';            // Optional pre-filled message, leave empty for none
 // ----------------------------------------------------------------------------
 
