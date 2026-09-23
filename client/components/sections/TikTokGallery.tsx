@@ -17,7 +17,7 @@
  *          #050505 background and #C8A24A gold accent palette.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
