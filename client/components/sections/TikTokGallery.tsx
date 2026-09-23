@@ -17,7 +17,7 @@
  *          #050505 background and #C8A24A gold accent palette.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, X } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
@@ -48,17 +48,39 @@ interface VideoCardProps {
 }
 
 function VideoCard({ video, index }: VideoCardProps) {
-  const [playing, setPlaying] = useState(false);
-  const [hovered, setHovered] = useState(false);
+  const [playing, setPlaying]         = useState(false);
+  const [hovered, setHovered]         = useState(false);
+  const [showFallback, setShowFallback] = useState(false);
+  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Guard: extract video ID from video.id or video.share_url
   let videoId = (video.id && video.id !== 'undefined' && video.id !== 'null') ? String(video.id) : '';
   if (!videoId && video.share_url) {
     const match = video.share_url.match(/\/video\/(\d+)/);
-    if (match?.[1]) {
-      videoId = match[1];
-    }
+    if (match?.[1]) videoId = match[1];
   }
+
+  // Build a direct TikTok share URL as fallback destination
+  const tiktokUrl = video.share_url || (videoId ? `https://www.tiktok.com/video/${videoId}` : 'https://www.tiktok.com');
+
+  // When user presses play, start a 4-second timer.
+  // If the iframe fires onLoad before the timer, cancel it.
+  // If the timer fires first, we assume the embed is unavailable and show fallback.
+  useEffect(() => {
+    if (playing) {
+      setShowFallback(false);
+      fallbackTimer.current = setTimeout(() => setShowFallback(true), 4000);
+    } else {
+      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+      setShowFallback(false);
+    }
+    return () => { if (fallbackTimer.current) clearTimeout(fallbackTimer.current); };
+  }, [playing]);
+
+  const handleIframeLoad = () => {
+    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+    // Keep fallback visible anyway so the user always has the option
+  };
 
   return (
     <motion.div
@@ -67,7 +89,7 @@ function VideoCard({ video, index }: VideoCardProps) {
       transition={{ duration: 0.45, delay: index * 0.07, ease: 'easeOut' }}
       className="group relative flex flex-col bg-[#0d0d0d] border border-neutral-800 overflow-hidden"
     >
-      {/* ── Top gold accent bar (always visible once hovered or playing) ── */}
+      {/* ── Top gold accent bar ── */}
       <div
         className={`h-[2px] w-full bg-[#C8A24A] transition-transform duration-300 origin-left ${
           hovered || playing ? 'scale-x-100' : 'scale-x-0'
@@ -92,7 +114,7 @@ function VideoCard({ video, index }: VideoCardProps) {
               transition={{ duration: 0.25 }}
               className="absolute inset-0"
             >
-              {/* Close button — top-right corner of the card */}
+              {/* Close button */}
               <button
                 onClick={() => setPlaying(false)}
                 aria-label="Close video"
@@ -110,12 +132,33 @@ function VideoCard({ video, index }: VideoCardProps) {
                   allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; accelerometer; gyroscope"
                   title={video.title || 'TikTok video'}
                   style={{ display: 'block', border: 'none' }}
+                  onLoad={handleIframeLoad}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs px-4 text-center">
                   Video ID unavailable — please try re-authorizing TikTok.
                 </div>
               )}
+
+              {/* ── Fallback: "Watch on TikTok" button ── */}
+              <AnimatePresence>
+                {showFallback && (
+                  <motion.a
+                    key="fallback"
+                    href={tiktokUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 8 }}
+                    transition={{ duration: 0.25 }}
+                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-4 py-2 bg-[#050505]/90 border border-[#C8A24A]/60 text-[#C8A24A] text-[11px] font-semibold tracking-wide uppercase whitespace-nowrap hover:bg-[#C8A24A] hover:text-[#050505] transition-colors duration-200 shadow-lg"
+                  >
+                    <TikTokIcon className="w-3 h-3" />
+                    Watch on TikTok ↗
+                  </motion.a>
+                )}
+              </AnimatePresence>
             </motion.div>
           ) : (
             /* ── Thumbnail ── */
