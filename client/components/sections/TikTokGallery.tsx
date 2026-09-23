@@ -48,10 +48,10 @@ interface VideoCardProps {
 }
 
 function VideoCard({ video, index }: VideoCardProps) {
-  const [playing, setPlaying]         = useState(false);
-  const [hovered, setHovered]         = useState(false);
-  const [showFallback, setShowFallback] = useState(false);
-  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   // Guard: extract video ID from video.id or video.share_url
   let videoId = (video.id && video.id !== 'undefined' && video.id !== 'null') ? String(video.id) : '';
@@ -60,26 +60,45 @@ function VideoCard({ video, index }: VideoCardProps) {
     if (match?.[1]) videoId = match[1];
   }
 
-  // Build a direct TikTok share URL as fallback destination
   const tiktokUrl = video.share_url || (videoId ? `https://www.tiktok.com/video/${videoId}` : 'https://www.tiktok.com');
 
-  // When user presses play, start a 4-second timer.
-  // If the iframe fires onLoad before the timer, cancel it.
-  // If the timer fires first, we assume the embed is unavailable and show fallback.
+  // Listen for TikTok player postMessage events.
+  // errorCode 2007 = invalid_param (domain not whitelisted / video not embeddable).
   useEffect(() => {
-    if (playing) {
-      setShowFallback(false);
-      fallbackTimer.current = setTimeout(() => setShowFallback(true), 4000);
-    } else {
-      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
-      setShowFallback(false);
-    }
-    return () => { if (fallbackTimer.current) clearTimeout(fallbackTimer.current); };
+    if (!playing) return;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.origin.includes('tiktok.com')) return;
+      try {
+        const data: unknown = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && typeof data === 'object') {
+          const d = data as Record<string, unknown>;
+          // Error reported by TikTok player
+          if (d['errorCode'] || d['errorType']) {
+            const code = d['errorCode'] as number | undefined;
+            const msg = code === 2007
+              ? 'Domain not whitelisted in TikTok Developer Portal.'
+              : `TikTok player error (code ${code ?? 'unknown'}).`;
+            setPlayerError(msg);
+            setPlaying(false);
+          }
+          // Player ready — clear any previous error
+          if (d['type'] === 'onPlayerReady' || d['type'] === 'player:ready') {
+            setPlayerError(null);
+          }
+        }
+      } catch {
+        // Ignore non-JSON messages from other origins
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, [playing]);
 
-  const handleIframeLoad = () => {
-    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
-    // Keep fallback visible anyway so the user always has the option
+  const handlePlay = () => {
+    setPlayerError(null);
+    setPlaying(true);
   };
 
   return (
@@ -91,9 +110,8 @@ function VideoCard({ video, index }: VideoCardProps) {
     >
       {/* ── Top gold accent bar ── */}
       <div
-        className={`h-[2px] w-full bg-[#C8A24A] transition-transform duration-300 origin-left ${
-          hovered || playing ? 'scale-x-100' : 'scale-x-0'
-        }`}
+        className={`h-[2px] w-full bg-[#C8A24A] transition-transform duration-300 origin-left ${hovered || playing ? 'scale-x-100' : 'scale-x-0'
+          }`}
       />
 
       {/* ── Media area — fixed 9:16 aspect ratio ── */}
@@ -125,6 +143,7 @@ function VideoCard({ video, index }: VideoCardProps) {
 
               {videoId ? (
                 <iframe
+                  ref={iframeRef}
                   src={`https://www.tiktok.com/player/v1/${videoId}`}
                   width="100%"
                   height="100%"
@@ -132,33 +151,12 @@ function VideoCard({ video, index }: VideoCardProps) {
                   allow="autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture; accelerometer; gyroscope"
                   title={video.title || 'TikTok video'}
                   style={{ display: 'block', border: 'none' }}
-                  onLoad={handleIframeLoad}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs px-4 text-center">
                   Video ID unavailable — please try re-authorizing TikTok.
                 </div>
               )}
-
-              {/* ── Fallback: "Watch on TikTok" button ── */}
-              <AnimatePresence>
-                {showFallback && (
-                  <motion.a
-                    key="fallback"
-                    href={tiktokUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 8 }}
-                    transition={{ duration: 0.25 }}
-                    className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-4 py-2 bg-[#050505]/90 border border-[#C8A24A]/60 text-[#C8A24A] text-[11px] font-semibold tracking-wide uppercase whitespace-nowrap hover:bg-[#C8A24A] hover:text-[#050505] transition-colors duration-200 shadow-lg"
-                  >
-                    <TikTokIcon className="w-3 h-3" />
-                    Watch on TikTok ↗
-                  </motion.a>
-                )}
-              </AnimatePresence>
             </motion.div>
           ) : (
             /* ── Thumbnail ── */
@@ -169,11 +167,11 @@ function VideoCard({ video, index }: VideoCardProps) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               className="absolute inset-0 cursor-pointer"
-              onClick={() => setPlaying(true)}
-              role="button"
-              tabIndex={0}
+              onClick={playerError ? undefined : handlePlay}
+              role={playerError ? undefined : 'button'}
+              tabIndex={playerError ? undefined : 0}
               aria-label={`Play: ${video.title || 'TikTok video'}`}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setPlaying(true); }}
+              onKeyDown={(e) => { if (!playerError && (e.key === 'Enter' || e.key === ' ')) handlePlay(); }}
             >
               {/* Cover image */}
               {video.cover_image_url ? (
@@ -191,21 +189,45 @@ function VideoCard({ video, index }: VideoCardProps) {
               {/* Gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-transparent to-transparent opacity-80 pointer-events-none" />
 
-              {/* Animated play button */}
+              {/* Error overlay */}
               <AnimatePresence>
-                {hovered && (
+                {playerError ? (
                   <motion.div
-                    key="play-btn"
-                    initial={{ opacity: 0, scale: 0.75 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.75 }}
-                    transition={{ duration: 0.18, ease: 'easeOut' }}
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    key="error"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#050505]/85 px-4 text-center pointer-events-auto"
                   >
-                    <div className="w-14 h-14 rounded-full bg-[#C8A24A]/90 flex items-center justify-center shadow-xl shadow-black/40">
-                      <Play className="w-6 h-6 text-[#050505] translate-x-0.5" />
-                    </div>
+                    <TikTokIcon className="w-6 h-6 text-neutral-600" />
+                    <p className="text-neutral-400 text-[11px] leading-relaxed">
+                      {playerError}
+                    </p>
+                    <a
+                      href={tiktokUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-[#C8A24A]/50 text-[#C8A24A] text-[10px] font-semibold uppercase tracking-wide hover:bg-[#C8A24A] hover:text-[#050505] transition-colors"
+                    >
+                      Open on TikTok ↗
+                    </a>
                   </motion.div>
+                ) : (
+                  /* Animated play button */
+                  hovered && (
+                    <motion.div
+                      key="play-btn"
+                      initial={{ opacity: 0, scale: 0.75 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.75 }}
+                      transition={{ duration: 0.18, ease: 'easeOut' }}
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    >
+                      <div className="w-14 h-14 rounded-full bg-[#C8A24A]/90 flex items-center justify-center shadow-xl shadow-black/40">
+                        <Play className="w-6 h-6 text-[#050505] translate-x-0.5" />
+                      </div>
+                    </motion.div>
+                  )
                 )}
               </AnimatePresence>
             </motion.div>
@@ -238,9 +260,9 @@ function VideoSkeleton({ index }: { index: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TikTokGallery() {
-  const [status, setStatus]   = useState<'idle' | 'loading' | 'connected' | 'disconnected' | 'error'>('idle');
-  const [videos, setVideos]   = useState<TikTokVideo[]>([]);
-  const [error, setError]     = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'connected' | 'disconnected' | 'error'>('idle');
+  const [videos, setVideos] = useState<TikTokVideo[]>([]);
+  const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Admin check — client-only
