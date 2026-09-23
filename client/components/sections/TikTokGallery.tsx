@@ -19,7 +19,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, X, Lock } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { tiktokApi, type TikTokVideo } from '../../lib/api/tiktok.api';
 import { getStoredAuth, isAdmin as checkIsAdmin } from '../../lib/auth/auth';
 
@@ -229,6 +229,26 @@ export default function TikTokGallery() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  // While checking status, don't flash the section yet
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <section className="bg-[#050505] py-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <VideoSkeleton key={i} index={i} />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Hide the entire section from non-admin visitors when TikTok is not connected
+  if (status === 'disconnected' && !isAdmin) {
+    return null;
+  }
+
   return (
     <section className="bg-[#050505] py-20 px-6">
       <div className="max-w-6xl mx-auto">
@@ -256,16 +276,7 @@ export default function TikTokGallery() {
           </p>
         </motion.div>
 
-        {/* ── Loading ── */}
-        {status === 'loading' && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <VideoSkeleton key={i} index={i} />
-            ))}
-          </div>
-        )}
-
-        {/* ── Disconnected ── */}
+        {/* ── Disconnected (admin only) ── */}
         {status === 'disconnected' && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
@@ -280,27 +291,18 @@ export default function TikTokGallery() {
             <div>
               <p className="text-neutral-300 text-sm font-medium mb-1">TikTok not connected</p>
               <p className="text-neutral-600 text-xs max-w-xs">
-                {isAdmin
-                  ? 'Authorize your TikTok account to display marketing videos on the site.'
-                  : 'Videos will appear here once the administrator connects the TikTok account.'}
+                Authorize your TikTok account to display marketing videos on the site.
               </p>
             </div>
 
-            {isAdmin ? (
-              <a
-                id="tiktok-authorize-btn"
-                href={TIKTOK_LOGIN_URL}
-                className="inline-flex items-center gap-2.5 px-7 py-3 bg-[#C8A24A] text-[#050505] text-sm font-semibold tracking-wide uppercase hover:bg-[#d4af61] transition-colors duration-300 shadow-lg shadow-[#C8A24A]/20"
-              >
-                <TikTokIcon className="w-4 h-4" />
-                Authorize TikTok
-              </a>
-            ) : (
-              <div className="flex items-center gap-2 text-neutral-700 text-xs">
-                <Lock className="w-3.5 h-3.5" />
-                Admin access required
-              </div>
-            )}
+            <a
+              id="tiktok-authorize-btn"
+              href={TIKTOK_LOGIN_URL}
+              className="inline-flex items-center gap-2.5 px-7 py-3 bg-[#C8A24A] text-[#050505] text-sm font-semibold tracking-wide uppercase hover:bg-[#d4af61] transition-colors duration-300 shadow-lg shadow-[#C8A24A]/20"
+            >
+              <TikTokIcon className="w-4 h-4" />
+              Authorize TikTok
+            </a>
           </motion.div>
         )}
 
