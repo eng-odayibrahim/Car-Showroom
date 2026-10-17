@@ -187,6 +187,17 @@ export class Car {
     return this.#copyWith({ dubicarssyncdAt: new Date() });
   }
 
+  /** يُستدعى أثناء Sync لتحديث بيانات وحالة السيارة القادمة من دبي كار */
+  syncFromDubicars(changes: Partial<CarProps>, status: string | CarStatus): Car {
+    const newStatus = status instanceof CarStatus ? status : CarStatus.from(status);
+    return this.#copyWith({
+      ...changes,
+      status: newStatus,
+      updatedAt: new Date(),
+      dubicarssyncdAt: new Date(),
+    });
+  }
+
   isFromDubicars(): boolean { return this.#source.isDubicars(); }
   isLocal():        boolean { return this.#source.isLocal();    }
 

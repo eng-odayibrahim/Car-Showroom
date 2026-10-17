@@ -149,53 +149,86 @@ export class DubicarsApiClient {
 
   // ── Ads ──────────────────────────────────────────────────
 
+  #extractAdsAndMeta(json: any): { ads: DubicarsAd[]; lastPage: number } {
+    const payload = json?.data;
+    let ads: DubicarsAd[] = [];
+    let lastPage = 1;
+
+    if (Array.isArray(payload)) {
+      ads = payload as DubicarsAd[];
+    } else if (payload && typeof payload === 'object') {
+      if (Array.isArray(payload.ads)) {
+        ads = payload.ads as DubicarsAd[];
+      } else if (Array.isArray(payload.data)) {
+        ads = payload.data as DubicarsAd[];
+      } else if (Array.isArray(payload.items)) {
+        ads = payload.items as DubicarsAd[];
+      } else if (Array.isArray(payload.results)) {
+        ads = payload.results as DubicarsAd[];
+      }
+
+      if (payload.meta && typeof payload.meta.last_page === 'number') {
+        lastPage = payload.meta.last_page;
+      }
+    } else if (json && typeof json === 'object') {
+      if (Array.isArray(json.ads)) {
+        ads = json.ads as DubicarsAd[];
+      } else if (Array.isArray(json.items)) {
+        ads = json.items as DubicarsAd[];
+      }
+      if (json.meta && typeof json.meta.last_page === 'number') {
+        lastPage = json.meta.last_page;
+      }
+    } else if (Array.isArray(json)) {
+      ads = json as unknown as DubicarsAd[];
+    }
+
+    return { ads, lastPage };
+  }
+
+  /**
+   * جلب كافة إعلانات المعرض من دبي كار بالتنقل عبر جميع الصفحات (Pagination)
+   */
+  async getAllAds(): Promise<DubicarsAd[]> {
+    const allAds: DubicarsAd[] = [];
+    let currentPage = 1;
+    let lastPage = 1;
+
+    console.log('[DubiCars] 🔄 بدء سحب جميع الإعلانات عبر التصفح (Pagination)...');
+
+    do {
+      const res = await this.#get(`/ads?page=${currentPage}`);
+      const json = await this.#parse<any>(res);
+      const { ads, lastPage: extractedLastPage } = this.#extractAdsAndMeta(json);
+
+      if (extractedLastPage > lastPage) {
+        lastPage = extractedLastPage;
+      }
+
+      allAds.push(...ads);
+
+      console.log(`[DubiCars] تم جلب صفحة ${currentPage} من ${lastPage} (إجمالي الإعلانات المسحوبة: ${allAds.length})`);
+
+      if (ads.length === 0) {
+        break;
+      }
+
+      currentPage++;
+      if (currentPage <= lastPage) {
+        // تأخير بسيط لتجنب حدوث Rate Limiting
+        await new Promise(r => setTimeout(r, 60));
+      }
+    } while (currentPage <= lastPage);
+
+    console.log(`[DubiCars] ✅ اكتمل سحب كافة الإعلانات: ${allAds.length} إعلاناً من ${lastPage} صفحة.`);
+    return allAds;
+  }
+
   async getAds(page = 1, perPage = 100): Promise<DubicarsAd[]> {
     const res  = await this.#get(`/ads?page=${page}&per_page=${perPage}`);
     const json = await this.#parse<any>(res);
-
-    const payload = json.data;
-
-    // 1. إذا كان json.data نفسه مصفوفة مباشرة
-    if (Array.isArray(payload)) {
-      return payload as DubicarsAd[];
-    }
-
-    // 2. إذا كان json.data كائنًا يحتوي على ads أو data أو items أو results
-    if (payload && typeof payload === 'object') {
-      if (Array.isArray(payload.ads)) {
-        return payload.ads as DubicarsAd[];
-      }
-      if (Array.isArray(payload.data)) {
-        return payload.data as DubicarsAd[];
-      }
-      if (Array.isArray(payload.items)) {
-        return payload.items as DubicarsAd[];
-      }
-      if (Array.isArray(payload.results)) {
-        return payload.results as DubicarsAd[];
-      }
-    }
-
-    // 3. تحقق في الجذر json مباشرة
-    if (json && typeof json === 'object') {
-      if (Array.isArray((json as any).ads)) {
-        return (json as any).ads as DubicarsAd[];
-      }
-      if (Array.isArray((json as any).items)) {
-        return (json as any).items as DubicarsAd[];
-      }
-    }
-    if (Array.isArray(json)) {
-      return json as unknown as DubicarsAd[];
-    }
-
-    // 4. إذا كان الاستعلام فارغًا
-    if (payload === null || payload === undefined || (typeof payload === 'object' && Object.keys(payload).length === 0)) {
-      return [];
-    }
-
-    console.error('[DubiCars] ❌ أُرجع تنسيق استجابة غير متوقع لـ Ads:', JSON.stringify(json).slice(0, 1000));
-    throw new Error('DubiCars API: unexpected ads response format — expected json.data (or json.data.ads) to be an array.');
+    const { ads } = this.#extractAdsAndMeta(json);
+    return ads;
   }
 
   async getAdById(adId: number): Promise<DubicarsAd> {

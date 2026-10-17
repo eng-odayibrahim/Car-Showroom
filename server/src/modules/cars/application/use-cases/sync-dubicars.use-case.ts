@@ -20,32 +20,35 @@ export class SyncFromDubicarsUseCase {
   async execute(): Promise<SyncResult> {
     const result: SyncResult = { added: 0, updated: 0, deleted: 0, errors: [] };
 
-    // 1. جلب كل إعلانات المعرض من دبي كار
-    const ads = await this.dubicarsClient.getAds();
+    // 1. جلب كل إعلانات المعرض من دبي كار عبر جميع الصفحات (Pagination)
+    const ads = await this.dubicarsClient.getAllAds();
     if (!Array.isArray(ads)) {
       throw new Error('DubiCars API returned invalid ads payload.');
     }
 
     const activeIds = ads.map(ad => ad.id);
 
+    console.log(`[Sync] 🚗 جاري مزامنة وتحديث ${ads.length} إعلاناً في قاعدة البيانات...`);
+
     // 2. معالجة كل إعلان
+    let processedCount = 0;
     for (const ad of ads) {
       try {
         const existing = await this.repo.findByDubicarsAdId(ad.id);
+        const mappedStatus = this.#mapStatus(ad.status);
+        const domainProps = this.#toDomainProps(ad);
 
         if (existing) {
-          // موجود → حدّث البيانات
-          const updated = existing
-            .update(this.#toDomainProps(ad))
-            .recordSync();
+          // موجود → حدّث البيانات والحالة عبر syncFromDubicars
+          const updated = existing.syncFromDubicars(domainProps, mappedStatus);
           await this.repo.save(updated);
           result.updated++;
         } else {
           // جديد → أضفه
           const car = new Car({
-            ...this.#toDomainProps(ad),
+            ...domainProps,
             source: CarSource.dubicars(ad.id),
-            status: this.#mapStatus(ad.status),
+            status: mappedStatus,
           } as CarProps);
           await this.repo.save(car.recordSync());
           result.added++;
@@ -56,10 +59,19 @@ export class SyncFromDubicarsUseCase {
           error: err instanceof Error ? err.message : String(err),
         });
       }
+
+      processedCount++;
+      if (processedCount % 100 === 0 || processedCount === ads.length) {
+        console.log(`[Sync] تمت معالجة ${processedCount} / ${ads.length} سيارة...`);
+      }
     }
 
-    // 3. سيارات اختفت من دبي كار → علّمها deleted
+    // 3. سيارات اختفت من دبي كار نهائياً → علّمها deleted
     result.deleted = await this.repo.markDeletedIfAdIdNotIn(activeIds);
+
+    console.log(
+      `[Sync] ✅ اكتملت المزامنة — أُضيف: ${result.added} | حُدّث: ${result.updated} | حُذف: ${result.deleted} | أخطاء: ${result.errors.length}`
+    );
 
     return result;
   }
