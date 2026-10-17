@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "cleanup:corrupt-cars": "tsx src/seed/cleanup-corrupt-cars.ts",
-    "sync:cars": "tsx src/seed/sync-cars.ts"
+    "sync:cars": "node dist/seed/sync-cars.js"
   },
   "keywords": [],
   "author": "",
